@@ -1,0 +1,93 @@
+-- ===========================================
+-- CREACIÓN DE LA BASE DE DATOS
+-- ===========================================
+CREATE DATABASE agenda_medica CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE agenda_medica;
+
+-- ===========================================
+-- TABLA: consultas
+-- ===========================================
+CREATE TABLE consultas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(200) NOT NULL
+);
+
+-- ===========================================
+-- TABLA: consultorios
+-- ===========================================
+CREATE TABLE consultorios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(200) NOT NULL
+);
+
+-- ===========================================
+-- TABLA: users
+-- ===========================================
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    consulta_id INT NOT NULL,
+    consultorio_id INT NOT NULL,
+    role ENUM('doctor','odontologo','admin') NOT NULL,
+    nombre VARCHAR(200) NOT NULL,
+    correo VARCHAR(150) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (consulta_id) REFERENCES consultas(id),
+    FOREIGN KEY (consultorio_id) REFERENCES consultorios(id)
+);
+
+-- ===========================================
+-- TABLA: eps
+-- ===========================================
+CREATE TABLE eps (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(200) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ===========================================
+-- TABLA: pacientes
+-- ===========================================
+CREATE TABLE pacientes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    eps_id INT NOT NULL,
+    nombre VARCHAR(200) NOT NULL,
+    cel VARCHAR(20),
+    correo VARCHAR(150) UNIQUE,
+    regimen ENUM('contributivo','subsidiado','otro') DEFAULT 'otro',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (eps_id) REFERENCES eps(id)
+);
+
+-- ===========================================
+-- TABLA: citas
+-- ===========================================
+CREATE TABLE citas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    paciente_id INT NOT NULL,
+    fecha DATE NOT NULL,
+    hora TIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
+);
+
+-- ===========================================
+-- TABLA: agendamientos
+-- ===========================================
+CREATE TABLE agendamientos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    fecha DATE NOT NULL,
+    hora TIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
