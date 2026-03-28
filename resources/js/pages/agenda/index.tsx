@@ -8,7 +8,7 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { Head, router } from '@inertiajs/react';
 import axios from 'axios';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useAgendaSlots } from '@/hooks/useAgendaSlots';
@@ -138,8 +138,6 @@ export default function Index({ citas, user }: Props) {
     const selectAllHours = () => {
         const available = slots.filter((slot) => slot.status !== 'booked').map((slot) => slot.hora);
 
-        console.log('Horas disponibles:', available);
-
         setAvailabilityHours(available);
     };
 
@@ -153,51 +151,106 @@ export default function Index({ citas, user }: Props) {
 
     const [disponibilidadEvents, setDisponibilidadEvents] = useState<EventInput[]>([]);
 
-    const loadDisponibilidades = async (start: string, end: string | null, viewType: string) => {
-        try {
-            const params = viewType === 'dayGridMonth' ? { start: start.slice(0, 10), end: end?.slice(0, 10) } : { fecha: start.slice(0, 10) };
+    const loadDisponibilidades = useCallback(
+        async (start: string, end: string | null, viewType: string) => {
+            try {
+                const params = viewType === 'dayGridMonth' ? { start: start.slice(0, 10), end: end?.slice(0, 10) } : { fecha: start.slice(0, 10) };
 
-            const { data } = await axios.get<DisponibilidadItem[]>('/api/disponibilidades', { params });
+                const { data } = await axios.get<DisponibilidadItem[]>('/api/disponibilidades', { params });
 
-            let events: EventInput[] = [];
+                let events: EventInput[] = [];
 
-            if (viewType === 'dayGridMonth') {
-                events = data.map((item) => ({
-                    id: `disp-month-${item.professional_id}-${item.fecha}`,
-                    title: item.professional,
-                    start: item.fecha,
-                    allDay: true,
-                    display: 'block',
-                    backgroundColor: '#86efac',
-                    borderColor: '#22c55e',
-                    textColor: '#065f46',
-                    editable: false,
-                }));
-            } else {
-                events = data.flatMap((item) =>
-                    item.horas.map((hora) => {
-                        const startDate = new Date(`${item.fecha}T${hora}`);
-                        const endDate = new Date(startDate);
-                        endDate.setMinutes(endDate.getMinutes() + 30);
+                if (viewType === 'dayGridMonth') {
+                    const citasMap = new Map<string, { count: number; profesional: string }>();
+                    type ExtendedCitaEvent = CitaEvent & {
+                        professional_id?: number; // 👈 agregamos esto
+                        extendedProps?: {
+                            profesional_id?: number;
+                            professional_id?: number;
+                            profesional?: string;
+                        };
+                    };
+
+                    citas.forEach((c: ExtendedCitaEvent) => {
+                        const professionalId =
+                            c.profesional_id ?? c.professional_id ?? c.extendedProps?.profesional_id ?? c.extendedProps?.professional_id;
+
+                        if (!professionalId || !c.start) return;
+
+                        const fecha = c.start.slice(0, 10);
+                        const key = `${Number(professionalId)}-${fecha}`;
+
+                        if (!citasMap.has(key)) {
+                            citasMap.set(key, {
+                                count: 1,
+                                profesional: c.profesional ?? c.extendedProps?.profesional ?? c.title,
+                            });
+                        } else {
+                            citasMap.get(key)!.count++;
+                        }
+                    });
+
+                    const citasEvents: EventInput[] = Array.from(citasMap.entries()).map(([key, value]) => {
+                        const [professional_id, ...fechaParts] = key.split('-');
+                        const fecha = fechaParts.join('-');
 
                         return {
-                            id: `disp-${item.professional_id}-${hora}`,
-                            title: item.professional,
-                            start: startDate.toISOString(),
-                            end: endDate.toISOString(),
-                            backgroundColor: '#bbf7d0',
-                            borderColor: '#22c55e',
+                            id: `cita-month-${professional_id}-${fecha}`,
+                            title: `${value.profesional} (${value.count})`,
+                            start: fecha,
+                            allDay: true,
+                            backgroundColor: '#3b82f6',
+                            borderColor: '#2563eb',
+                            textColor: '#ffffff',
                             editable: false,
                         };
-                    }),
-                );
-            }
+                    });
 
-            setDisponibilidadEvents(events);
-        } catch (error) {
-            console.error(error);
-        }
-    };
+                    const disponibilidadEventsFiltered: EventInput[] = data
+                        .filter((item) => {
+                            const key = `${Number(item.professional_id)}-${item.fecha.slice(0, 10)}`;
+                            return !citasMap.has(key);
+                        })
+                        .map((item) => ({
+                            id: `disp-month-${item.professional_id}-${item.fecha}`,
+                            title: `${item.professional} (Disponible)`,
+                            start: item.fecha,
+                            allDay: true,
+                            display: 'block',
+                            backgroundColor: '#86efac',
+                            borderColor: '#22c55e',
+                            textColor: '#065f46',
+                            editable: false,
+                        }));
+
+                    events = [...citasEvents, ...disponibilidadEventsFiltered];
+                } else {
+                    events = data.flatMap((item) =>
+                        item.horas.map((hora) => {
+                            const startDate = new Date(`${item.fecha}T${hora}`);
+                            const endDate = new Date(startDate);
+                            endDate.setMinutes(endDate.getMinutes() + 30);
+
+                            return {
+                                id: `disp-${item.professional_id}-${hora}`,
+                                title: item.professional,
+                                start: startDate.toISOString(),
+                                end: endDate.toISOString(),
+                                backgroundColor: '#bbf7d0',
+                                borderColor: '#22c55e',
+                                editable: false,
+                            };
+                        }),
+                    );
+                }
+
+                setDisponibilidadEvents(events);
+            } catch (error) {
+                console.error(error);
+            }
+        },
+        [citas],
+    );
 
     /* ================= Profesionales ================= */
 
@@ -231,9 +284,10 @@ export default function Index({ citas, user }: Props) {
 
     useEffect(() => {
         if (!calendarRange) return;
+        if (!citas || citas.length === 0) return; // 👈 CLAVE
 
         loadDisponibilidades(calendarRange.start, calendarRange.end, calendarRange.viewType);
-    }, [calendarRange]);
+    }, [calendarRange, citas, loadDisponibilidades]);
 
     /* ======================================================
     | Effects limpiar slots cargados por hook
@@ -407,7 +461,15 @@ export default function Index({ citas, user }: Props) {
                         scrollTime="08:00:00"
                         height="auto"
                         dateClick={handleDateClick}
-                        eventSources={[{ events: citas }, { events: disponibilidadEvents }]}
+                        eventSources={[
+                            ...(calendarRange?.viewType === 'dayGridMonth'
+                                ? [
+                                      {
+                                          events: disponibilidadEvents,
+                                      },
+                                  ]
+                                : [{ events: citas }, { events: disponibilidadEvents }]),
+                        ]}
                         datesSet={(info) => {
                             const viewType = info.view.type;
 

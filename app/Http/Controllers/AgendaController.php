@@ -195,10 +195,11 @@ class AgendaController extends Controller
             'professional_id' => $professionalId,
             'updated_by' => Auth::id(),
         ]);
-
+        
         return response()->json([
             'success' => true,
             'message' => 'Cita reprogramada correctamente',
         ]);
     }
+
 }
