@@ -21,3 +21,5 @@ Route::get(
     '/api/agenda/slots',
     [ProfesionalDisponibleController::class, 'slots']
 );
+
+Route::delete('/api/disponibilidades', [ProfesionalDisponibleController::class, 'destroy']);

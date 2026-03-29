@@ -408,6 +408,31 @@ export default function Index({ citas, user }: Props) {
         );
     };
 
+    const handleDelete = async () => {
+        if (!calendarRange) {
+            toast.error('No hay rango de calendario disponible');
+            return;
+        }
+
+        try {
+            await axios.delete('/api/disponibilidades', {
+                data: {
+                    professional_id: selectedProfessionalId,
+                    fecha: selectedDateB,
+                },
+            });
+
+            toast.success('Disponibilidad eliminada');
+
+            setModalOpen(false);
+
+            await loadDisponibilidades(calendarRange.start, calendarRange.end, calendarRange.viewType);
+        } catch (error) {
+            console.error(error);
+            toast.error('Error al eliminar disponibilidad');
+        }
+    };
+
     /* ======================================================
     | API Guardar disponibilidad
     ====================================================== */
@@ -609,6 +634,9 @@ export default function Index({ citas, user }: Props) {
                         {/* Botones */}
 
                         <div className="mt-6 flex justify-end gap-2">
+                            <button onClick={handleDelete} className="rounded border px-4 py-2 text-red-600 hover:bg-red-50">
+                                Eliminar disponibilidad
+                            </button>
                             <button onClick={() => setAvailabilityOpen(false)} className="rounded border px-4 py-2">
                                 Cancelar
                             </button>
@@ -705,6 +733,10 @@ export default function Index({ citas, user }: Props) {
                             </div>
 
                             <div className="mt-4 flex justify-end gap-2">
+                                <button onClick={handleDelete} className="rounded border px-4 py-2 text-red-600 hover:text-red-700">
+                                    Eliminar cita
+                                </button>
+
                                 <button onClick={() => setModalOpen(false)} className="rounded border px-4 py-2">
                                     Cancelar
                                 </button>

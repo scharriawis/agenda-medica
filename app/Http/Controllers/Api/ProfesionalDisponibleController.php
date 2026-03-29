@@ -166,83 +166,98 @@ class ProfesionalDisponibleController extends Controller
     }
 
     public function slots(Request $request)
-{
-    $data = $request->validate([
-        'professional_id' => ['required','exists:professionals,id'],
-        'fecha' => ['required','date'],
-    ]);
+    {
+        $data = $request->validate([
+            'professional_id' => ['required', 'exists:professionals,id'],
+            'fecha' => ['required', 'date'],
+        ]);
 
-    $professionalId = $data['professional_id'];
-    $fecha = Carbon::parse($data['fecha'])->toDateString();
+        $professionalId = $data['professional_id'];
+        $fecha = Carbon::parse($data['fecha'])->toDateString();
 
-    /*
-    |--------------------------------------------------------------------------
-    | Horarios base del sistema
-    |--------------------------------------------------------------------------
-    */
+        /*
+        |--------------------------------------------------------------------------
+        | Horarios base del sistema
+        |--------------------------------------------------------------------------
+        */
 
-    $slots = [
-        '08:00','08:30',
-        '09:00','09:30',
-        '10:00','10:30',
-        '11:00','11:30',
-        '12:00',
+        $slots = [
+            '08:00', '08:30',
+            '09:00', '09:30',
+            '10:00', '10:30',
+            '11:00', '11:30',
+            '12:00',
 
-        '14:00','14:30',
-        '15:00','15:30',
-        '16:00','16:30',
-        '17:00',
-    ];
-
-    /*
-    |--------------------------------------------------------------------------
-    | Disponibilidad registrada
-    |--------------------------------------------------------------------------
-    */
-
-    $disponibles = DisponibilidadProfesional::query()
-        ->where('professional_id',$professionalId)
-        ->where('fecha',$fecha)
-        ->pluck('hora')
-        ->toArray();
-
-    /*
-    |--------------------------------------------------------------------------
-    | Citas ocupadas
-    |--------------------------------------------------------------------------
-    */
-
-    $ocupadas = \App\Models\Cita::query()
-        ->where('professional_id',$professionalId)
-        ->whereDate('fecha',$fecha)
-        ->whereIn('status',['confirmada','pendiente'])
-        ->pluck('hora')
-        ->toArray();
-
-    /*
-    |--------------------------------------------------------------------------
-    | Construir respuesta
-    |--------------------------------------------------------------------------
-    */
-
-    $result = collect($slots)->map(function ($hora) use ($disponibles,$ocupadas){
-
-        if (in_array($hora,$ocupadas)) {
-            $status = 'booked';
-        }
-        elseif (in_array($hora,$disponibles)) {
-            $status = 'available';
-        }
-        else {
-            $status = 'disabled';
-        }
-
-        return [
-            'hora' => $hora,
-            'status' => $status
+            '14:00', '14:30',
+            '15:00', '15:30',
+            '16:00', '16:30',
+            '17:00',
         ];
-    });
 
-    return response()->json($result);
-}
+        /*
+        |--------------------------------------------------------------------------
+        | Disponibilidad registrada
+        |--------------------------------------------------------------------------
+        */
+
+        $disponibles = DisponibilidadProfesional::query()
+            ->where('professional_id', $professionalId)
+            ->where('fecha', $fecha)
+            ->pluck('hora')
+            ->toArray();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Citas ocupadas
+        |--------------------------------------------------------------------------
+        */
+
+        $ocupadas = \App\Models\Cita::query()
+            ->where('professional_id', $professionalId)
+            ->whereDate('fecha', $fecha)
+            ->whereIn('status', ['confirmada', 'pendiente'])
+            ->pluck('hora')
+            ->toArray();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Construir respuesta
+        |--------------------------------------------------------------------------
+        */
+
+        $result = collect($slots)->map(function ($hora) use ($disponibles, $ocupadas) {
+
+            if (in_array($hora, $ocupadas)) {
+                $status = 'booked';
+            } elseif (in_array($hora, $disponibles)) {
+                $status = 'available';
+            } else {
+                $status = 'disabled';
+            }
+
+            return [
+                'hora' => $hora,
+                'status' => $status,
+            ];
+        });
+
+        return response()->json($result);
+    }
+
+    public function destroy(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'professional_id' => ['required', 'exists:professionals,id'],
+            'fecha' => ['required', 'date'],
+        ]);
+
+        DisponibilidadProfesional::where('professional_id', $data['professional_id'])
+            ->where('fecha', $data['fecha'])
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Disponibilidades eliminadas correctamente',
+        ]);
+    }
 }
